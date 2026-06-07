@@ -101,7 +101,7 @@ open a machine terminal in your `Repos` folder:
 
 ```bash
 # Replace username with YOUR GitHub username.
-git clone https://github.com/username/streaming-05-storage
+git clone https://github.com/matthewpblock/streaming-05-storage
 
 cd streaming-05-storage
 code .
@@ -172,7 +172,7 @@ bin/kafka-topics.sh --create \
   --bootstrap-server localhost:9092 \
   --partitions 1 \
   --replication-factor 1 \
-  --topic streaming-05-storage-case
+  --topic streaming-05-storage-critical-section
 ```
 
 ### In VS Code Terminal 3: Run Project and Producer (producer)
