@@ -8,10 +8,12 @@ from datafun_streaming.data_validation.validation_utils import validate_required
 
 WEATHER_REQUIRED_FIELDS: Final[list[str]] = [
     "location",
-    "timestamp",
+    "pulled_timestamp",
+    "predicting_timestamp",
     "temperature_f",
     "humidity_pct",
     "wind_speed_mph",
+    "wind_direction_deg",
 ]
 
 CONSUMED_FIELDNAMES: Final[list[str]] = [
@@ -53,6 +55,13 @@ def validate_weather_record(record: DataRecordDict) -> ValidationResult:
             errors.append(f"Humidity out of bounds: {humidity}")
     except ValueError:
         errors.append(f"Invalid humidity format: {record['humidity_pct']}")
+
+    try:
+        direction = int(record["wind_direction_deg"])
+        if direction < 0 or direction > 360:
+            errors.append(f"Wind direction out of bounds: {direction}")
+    except ValueError:
+        errors.append(f"Invalid wind direction format: {record['wind_direction_deg']}")
 
     has_errors = bool(errors)
     is_result_valid = not has_errors

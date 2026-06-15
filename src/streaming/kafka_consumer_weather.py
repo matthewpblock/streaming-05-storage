@@ -27,7 +27,7 @@ from streaming.storage.storage_weather import (
 LOG = get_logger("CONSUMER-WEATHER", level="INFO")
 
 TIMEOUT_SECONDS: Final[float] = 10.0
-MAX_MESSAGES: Final[int] = 100
+MAX_MESSAGES: Final[int] = 5000  # Increased to easily capture 240+ hourly forecasts
 WEATHER_TOPIC: Final[str] = os.getenv("KAFKA_TOPIC_WEATHER", "streaming-05-weather")
 
 OUTPUT_DIR: Final[Path] = Path.cwd() / "data" / "output"
@@ -55,13 +55,11 @@ def main() -> None:
     """Run the main consumer loop for weather data."""
     LOG.info("Starting Weather Consumer...")
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    if OUTPUT_CSV.exists():
-        OUTPUT_CSV.unlink()
 
     init_db(OUTPUT_DB)
 
+    os.environ["KAFKA_TOPIC"] = WEATHER_TOPIC
     settings = KafkaSettings.from_env()
-    settings.topic = WEATHER_TOPIC
     verify_kafka_connection(settings)
 
     consumer = create_consumer(settings)
@@ -77,7 +75,9 @@ def main() -> None:
     LOG.info("Consuming messages...")
     try:
         while consumed_count < MAX_MESSAGES:
-            row = consume_kafka_message(consumer, timeout_seconds=TIMEOUT_SECONDS)
+            row = consume_kafka_message(
+                consumer=consumer, timeout_seconds=TIMEOUT_SECONDS
+            )
             if row is None:
                 LOG.info("No message received. Exiting.")
                 break
@@ -103,7 +103,7 @@ def main() -> None:
 
             consumed_count += 1
             LOG.info(
-                f"PROCESSED: {enriched['timestamp']} | Temp: {enriched['temperature_f']}F "
+                f"PROCESSED: Pulled {enriched['pulled_timestamp']} | Predicting {enriched['predicting_timestamp']} | "
                 f"({enriched['temp_c']}C) | Comfy: {enriched['is_comfortable']}"
             )
 

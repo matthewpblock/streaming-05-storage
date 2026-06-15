@@ -20,8 +20,8 @@ from streaming.data_validation.data_validation_case import add_validation_errors
 
 LOG = get_logger("W-STORAGE", level="DEBUG")
 
-VALID_TABLE_NAME: Final[str] = "weather_valid"
-REJECTED_TABLE_NAME: Final[str] = "weather_rejected"
+VALID_TABLE_NAME: Final[str] = "weather_forecasts_valid"
+REJECTED_TABLE_NAME: Final[str] = "weather_forecasts_rejected"
 
 CONSUMED_REJECTED_FIELDNAMES: Final[list[str]] = [
     *REJECTED_FIELDNAMES,
@@ -58,9 +58,12 @@ def clear_storage_tables(db_path: Path) -> None:
 
 
 def init_db(db_path: Path) -> None:
-    """Initialize the DuckDB database for this project."""
+    """Initialize the DuckDB database for this project.
+
+    We purposely do NOT clear the tables here so that historic runs
+    can accumulate over multiple days to analyze forecast accuracy.
+    """
     create_storage_tables(db_path)
-    clear_storage_tables(db_path)
 
 
 def write_valid_record(db_path: Path, record: DataRecordDict) -> None:

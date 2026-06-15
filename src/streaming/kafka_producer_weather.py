@@ -1,6 +1,7 @@
 """src/streaming/kafka_producer_weather.py."""
 
 from collections.abc import Generator
+from datetime import UTC, datetime
 import json
 import os
 import time
@@ -27,7 +28,7 @@ WEATHER_TOPIC: Final[str] = os.getenv("KAFKA_TOPIC_WEATHER", "streaming-05-weath
 def generate_weather_messages() -> Generator[dict[str, str]]:
     """Fetch Honolulu forecast and stream it hour by hour."""
     LOG.info("Fetching live weather forecast for Honolulu from Open-Meteo...")
-    url = "https://api.open-meteo.com/v1/forecast?latitude=21.3069&longitude=-157.8583&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m&temperature_unit=fahrenheit"
+    url = "https://api.open-meteo.com/v1/forecast?latitude=21.3069&longitude=-157.8583&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m&temperature_unit=fahrenheit&forecast_days=10"
 
     with urllib.request.urlopen(url) as response:  # noqa: S310
         data = json.loads(response.read().decode())
@@ -36,23 +37,31 @@ def generate_weather_messages() -> Generator[dict[str, str]]:
         temps = hourly["temperature_2m"]
         humids = hourly["relative_humidity_2m"]
         winds = hourly["wind_speed_10m"]
+        dirs = hourly["wind_direction_10m"]
 
-        # Stream up to 48 hours of forecast
-        for i in range(min(48, len(times))):
+        # Mark the exact time we pulled this 10-day forecast dataset
+        pulled_timestamp = datetime.now(UTC).isoformat(timespec="seconds")
+
+        # Stream all 10 days of forecast (240 hours)
+        for i in range(len(times)):
             yield {
                 "location": "Honolulu, HI",
-                "timestamp": str(times[i]),
+                "pulled_timestamp": pulled_timestamp,
+                "predicting_timestamp": str(times[i]),
                 "temperature_f": str(temps[i]),
                 "humidity_pct": str(humids[i]),
                 "wind_speed_mph": str(winds[i]),
+                "wind_direction_deg": str(dirs[i]),
             }
 
 
 def main() -> None:
     """Run the main producer loop for weather data."""
     LOG.info("Starting Weather Producer...")
+    os.environ["KAFKA_TOPIC"] = (
+        WEATHER_TOPIC  # Override environment variable before loading
+    )
     settings = KafkaSettings.from_env()
-    settings.topic = WEATHER_TOPIC  # Override to avoid mixing with sales data
 
     verify_connection(settings)
     prepare_producer_topic(settings)
@@ -80,7 +89,8 @@ def main() -> None:
 
             sent_count += 1
             LOG.info(
-                f"SENT: {message['timestamp']} | Temp: {message['temperature_f']}F"
+                f"SENT: Pulled {message['pulled_timestamp']} | Predicting {message['predicting_timestamp']} | "
+                f"Temp: {message['temperature_f']}F | Wind: {message['wind_speed_mph']}mph @ {message['wind_direction_deg']}deg"
             )
             time.sleep(MESSAGE_INTERVAL_SECONDS)
 
